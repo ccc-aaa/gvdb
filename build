@@ -1,3 +1,0 @@
-gcc -O3 -march=native -c gvdb-reader.c $(pkg-config --libs --cflags glib-2.0)
-gcc -O3 -march=native -c gvdb-builder.c $(pkg-config --libs --cflags glib-2.0)
-gcc -O3 -march=native gvdb-reader.o reader.c -o reader $(pkg-config --libs --cflags glib-2.0)
