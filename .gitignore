@@ -1,2 +1,4 @@
 *.o
 reader
+compile_commands.json
+.cache/
