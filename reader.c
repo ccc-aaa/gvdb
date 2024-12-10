@@ -21,9 +21,64 @@
 #include <stdlib.h>
 #include "gvdb-reader.h"
 
-#define DEPTH 4
+#define MAXDEPTH 4
 
-static void recurse_table(GvdbTable * table, int depth, const gchar* prefix)
+static void recurse_table(GvdbTable * table, int depth, int indent, const gchar* prefix);
+void help(const char* name);
+
+int main(int argc, char *argv[])
+{
+    GError *error = NULL;
+    GvdbTable *table;
+    int pretty = 0;
+    int arg_start = 1;
+
+    if(argc <= 1) {
+      help(argv[0]);
+      return 1;
+    }
+
+    for(int i = 1; i < argc; i++) {
+      if(strncmp(argv[i], "--help", 6) == 0 || strncmp(argv[i], "-h", 2) == 0) {
+        help(argv[0]);
+        return 0;
+      } else if(strncmp(argv[i], "--pretty", 8) == 0 || strncmp(argv[i], "-p", 2) == 0) {
+        pretty = 1;
+        arg_start = i+1;
+      } else if(strncmp(argv[i], "--", 2) == 0) {
+        arg_start = i+1;
+        break;
+      }
+    }
+
+    for (int i = arg_start; i < argc; i++) {
+        if ((table = gvdb_table_new(argv[i], TRUE, &error)) == NULL) {
+            fprintf(stderr, "Can't read database from %s: %s\n", argv[i],
+                    error->message);
+            g_error_free(error);
+            error = NULL;
+            continue;
+        }
+
+        if(pretty == 1) {
+          puts(argv[i]);
+          recurse_table(table, 0, 2, NULL);
+          puts("");
+        } else {
+          recurse_table(table, 0, 0, NULL);
+        }
+
+        gvdb_table_free(table);
+    }
+
+    return 0;
+}
+
+void help(const char* name) {
+  printf("Usage: %s dbpath [dbpath...]\n", name);
+}
+
+static void recurse_table(GvdbTable * table, int depth, int indent, const gchar* prefix)
 {
     GvdbTable *rtable;
     GVariant *var;
@@ -35,29 +90,45 @@ static void recurse_table(GvdbTable * table, int depth, const gchar* prefix)
         return;
     }
 
+    if (depth >= MAXDEPTH) {
+      printf("max recursion reached.");
+      return;
+    }
+
     for (gsize n = 0; n < length; n++) {
         if (gvdb_table_has_value(table, names[n]) == TRUE) {
-            printf("%*c", depth, ' ');
-            if(prefix != NULL) { printf("%s ", prefix); }
+            if(prefix != NULL && indent == 0) {
+              printf("%s ", prefix);
+            } else {
+              printf("%*c", depth*indent, ' ');
+            }
             printf("%s:", names[n]);
             var = gvdb_table_get_value(table, names[n]);
-            val = g_variant_print_string(var, NULL, TRUE);
+            val = g_variant_print_string(var, NULL, FALSE);
             printf("\t%s\n", val->str);
             g_string_free(val, TRUE);
             g_variant_unref(var);
         } else if ((rtable = gvdb_table_get_table(table, names[n])) !=
                    NULL) {
-            gsize limit = strlen(names[n])+1;
-            if(prefix != NULL) { limit += strlen(prefix)+1; }
-            gchar* buffer = g_new0(gchar, limit);
+          if(indent == 0) {
+            gsize limit = strlen(names[n]);
+            gchar* buffer = NULL;
+
             if(prefix != NULL) {
-              strncpy(buffer, prefix, limit);
-              strncat(buffer, " ", limit - strlen(buffer));
+              limit += strlen(prefix);
+              buffer = g_new0(gchar, limit+2);
+              snprintf(buffer, limit, "%s %s", prefix, names[n]);
+            } else {
+              buffer = g_new0(gchar, limit+1);
+              strncpy(buffer, names[n], limit+1);
             }
-            strncat(buffer, names[n], limit - strlen(buffer));
-            recurse_table(rtable, depth, buffer);
+            recurse_table(rtable, depth+1, indent, buffer);
             free(buffer);
-            gvdb_table_free(rtable);
+          } else {
+            printf("%s:\n", names[n]);
+            recurse_table(rtable, depth+1, indent, NULL);
+          }
+          gvdb_table_free(rtable);
         }
     }
 
@@ -65,29 +136,3 @@ static void recurse_table(GvdbTable * table, int depth, const gchar* prefix)
     g_free(names);
 }
 
-int main(int argc, char *argv[])
-{
-    GError *error = NULL;
-    GvdbTable *table;
-    int i;
-
-    for (i = 1; i < argc; i++) {
-        if ((table = gvdb_table_new(argv[i], TRUE, &error)) == NULL) {
-            fprintf(stderr, "Can't read database from %s: %s\n", argv[i],
-                    error->message);
-            g_error_free(error);
-            error = NULL;
-            continue;
-        }
-
-        puts(argv[i]);
-
-        recurse_table(table, DEPTH, NULL);
-
-        puts("");
-
-        gvdb_table_free(table);
-    }
-
-    return 0;
-}
