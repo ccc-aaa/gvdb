@@ -1,4 +1,4 @@
 *.o
-reader
+gvdb
 compile_commands.json
 .cache/
