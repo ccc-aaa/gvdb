@@ -21,7 +21,7 @@
 #include <stdlib.h>
 #include "gvdb-reader.h"
 
-#define MAXDEPTH 4
+#define MAXDEPTH 10
 
 static void recurse_table(GvdbTable * table, int depth, int indent, const gchar* prefix);
 void help(const char* name);
@@ -62,10 +62,10 @@ int main(int argc, char *argv[])
 
         if(pretty == 1) {
           puts(argv[i]);
-          recurse_table(table, 0, 2, NULL);
+          recurse_table(table, 1, 2, NULL);
           puts("");
         } else {
-          recurse_table(table, 0, 0, NULL);
+          recurse_table(table, 1, 0, NULL);
         }
 
         gvdb_table_free(table);
@@ -97,10 +97,10 @@ static void recurse_table(GvdbTable * table, int depth, int indent, const gchar*
 
     for (gsize n = 0; n < length; n++) {
         if (gvdb_table_has_value(table, names[n]) == TRUE) {
-            if(prefix != NULL && indent == 0) {
-              printf("%s ", prefix);
-            } else {
+            if(indent > 0) {
               printf("%*c", depth*indent, ' ');
+            } else if(prefix != NULL) {
+              printf("%s ", prefix);
             }
             printf("%s:", names[n]);
             var = gvdb_table_get_value(table, names[n]);
